@@ -1,0 +1,73 @@
+.game-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 80px);
+  padding: 1rem;
+}
+
+.game-container {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.game-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.game-header h1 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+  font-size: 2rem;
+}
+
+.game-header p {
+  color: var(--text-color);
+  opacity: 0.8;
+  margin: 0;
+}
+
+.game-message {
+  padding: 1rem;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 600;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-message.success {
+  background-color: var(--correct-color);
+  color: white;
+}
+
+.game-message.error {
+  background-color: var(--error-color);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .game-page {
+    padding: 0.5rem;
+  }
+  
+  .game-container {
+    max-width: 100%;
+  }
+  
+  .game-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .game-message {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+} 
