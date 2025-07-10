@@ -18,15 +18,37 @@ const Home = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!user?.id) {
+      setActiveSessions({});
+      setError("");
+      loadData();
+    } else {
+      loadData();
+    }
+  }, [user?.id]);
 
   const loadData = async () => {
+    if (!user?.id) {
+      try {
+        setIsLoading(true);
+        const difficultiesData = await getDifficulties();
+        setDifficulties(difficultiesData);
+        setActiveSessions({});
+        setShowDifficulties(true);
+      } catch (err) {
+        setError("Failed to load difficulties");
+        console.error("Error loading difficulties:", err);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     try {
       setIsLoading(true);
       const [difficultiesData, sessionsData] = await Promise.all([
         getDifficulties(),
-        Promise.resolve(getAllActiveSessions(user?.id)),
+        Promise.resolve(getAllActiveSessions(user.id)),
       ]);
       setDifficulties(difficultiesData);
       setActiveSessions(sessionsData);
@@ -51,8 +73,10 @@ const Home = () => {
   };
 
   const handleClearSession = async (sessionId) => {
+    if (!user?.id) return;
+
     try {
-      clearSession(sessionId, user?.id);
+      clearSession(sessionId, user.id);
 
       setActiveSessions((prevSessions) => {
         const updatedSessions = { ...prevSessions };
@@ -96,13 +120,39 @@ const Home = () => {
     );
   }
 
-  const hasActiveSessions = Object.keys(activeSessions).length > 0;
+  const hasActiveSessions = user?.id && Object.keys(activeSessions).length > 0;
 
   return (
     <div className="home-page">
       <div className="home-container">
-        {showDifficulties || !hasActiveSessions ? (
-          // Show difficulty selection
+        {!user?.id ? (
+          <>
+            <h1>Choose Your Difficulty</h1>
+            <p>Select a difficulty level to start playing Wordle</p>
+            <p
+              style={{ fontSize: "0.9rem", opacity: 0.7, marginBottom: "20px" }}
+            >
+              <em>Note: Login to save your progress and play multiple games</em>
+            </p>
+
+            <div className="difficulty-grid">
+              {difficulties.map((difficulty) => (
+                <button
+                  key={difficulty.id}
+                  onClick={() => handleDifficultySelect(difficulty.id)}
+                  className="difficulty-card"
+                >
+                  <h3>{difficulty.name}</h3>
+                  <p>
+                    {difficulty.id === "easy" && "Perfect for beginners"}
+                    {difficulty.id === "medium" && "Classic Wordle experience"}
+                    {difficulty.id === "hard" && "Challenge yourself"}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : showDifficulties || !hasActiveSessions ? (
           <>
             <h1>Choose Your Difficulty</h1>
             <p>Select a difficulty level to start playing Wordle</p>
@@ -135,7 +185,6 @@ const Home = () => {
             </div>
           </>
         ) : (
-          // Show active sessions
           <>
             <h1>Your Active Games</h1>
             <p>Continue playing or start a new game</p>

@@ -31,13 +31,6 @@ const Game = () => {
   const difficultyId = location.state?.difficultyId;
 
   useEffect(() => {
-    if (!user?.id) {
-      // User not logged in, redirect to home
-      navigate("/");
-      return;
-    }
-
-    // Prevent duplicate initialization
     if (hasInitialized.current) {
       return;
     }
@@ -45,13 +38,14 @@ const Game = () => {
     hasInitialized.current = true;
 
     if (sessionId) {
-      // Load existing session
-      loadExistingSession();
+      if (user?.id) {
+        loadExistingSession();
+      } else {
+        navigate("/");
+      }
     } else if (difficultyId) {
-      // Start new session
       startNewGame();
     } else {
-      // No session ID or difficulty ID, redirect to home
       navigate("/");
     }
   }, [sessionId, difficultyId, navigate, user?.id]);
@@ -74,7 +68,6 @@ const Game = () => {
       );
       setMessage("");
 
-      // Rebuild letter status from attempts
       const letterStatusMap = {};
       (session.attempts || []).forEach((attempt) => {
         attempt.result.forEach(({ letter, solution }) => {
@@ -100,7 +93,6 @@ const Game = () => {
   };
 
   const startNewGame = async () => {
-    // Prevent duplicate session creation
     if (isStartingSession.current) {
       return;
     }
@@ -180,11 +172,15 @@ const Game = () => {
       if (result.every((r) => r.solution === "correct")) {
         setGameStatus("won");
         setMessage("Congratulations! You won!");
-        updateUserStats({ won: true, attempts: guesses.length + 1 });
+        if (user?.id) {
+          updateUserStats({ won: true, attempts: guesses.length + 1 });
+        }
       } else if (guesses.length >= 5) {
         setGameStatus("lost");
         setMessage("Game over! Better luck next time.");
-        updateUserStats({ won: false, attempts: guesses.length + 1 });
+        if (user?.id) {
+          updateUserStats({ won: false, attempts: guesses.length + 1 });
+        }
       }
 
       setCurrentGuess("");
@@ -238,6 +234,13 @@ const Game = () => {
         <div className="game-header">
           <h1>Wordle - {gameSession.difficulty.name}</h1>
           <p>Guess the {gameSession.wordLenght}-letter word</p>
+          {!user?.id && (
+            <p
+              style={{ fontSize: "0.9rem", opacity: 0.7, fontStyle: "italic" }}
+            >
+              Playing as guest - progress won't be saved
+            </p>
+          )}
         </div>
 
         {message && (
@@ -269,6 +272,7 @@ const Game = () => {
             guesses={guesses}
             onPlayAgain={startNewGame}
             onGoHome={() => navigate("/")}
+            isLoggedIn={!!user?.id}
           />
         )}
       </div>
