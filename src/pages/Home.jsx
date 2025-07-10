@@ -53,7 +53,17 @@ const Home = () => {
   const handleClearSession = async (sessionId) => {
     try {
       clearSession(sessionId, user?.id);
-      await loadData();
+
+      setActiveSessions((prevSessions) => {
+        const updatedSessions = { ...prevSessions };
+        delete updatedSessions[sessionId];
+
+        if (Object.keys(updatedSessions).length === 0) {
+          setShowDifficulties(true);
+        }
+
+        return updatedSessions;
+      });
     } catch (err) {
       console.error("Error clearing session:", err);
     }
