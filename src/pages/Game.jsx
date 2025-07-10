@@ -1,6 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { startGameSession, checkWord } from "../service/GameService";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  startGameSession,
+  checkWord,
+  getSessionData,
+} from "../service/GameService";
 import { useAuth } from "../context/AuthContext";
 import WordleBoard from "../components/game/WordleBoard";
 import Keyboard from "../components/game/Keyboard";
@@ -10,7 +14,8 @@ import "./Game.css";
 const Game = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { updateUserStats } = useAuth();
+  const { sessionId } = useParams();
+  const { updateUserStats, user } = useAuth();
 
   const [gameSession, setGameSession] = useState(null);
   const [currentGuess, setCurrentGuess] = useState("");
@@ -20,20 +25,82 @@ const Game = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [letterStatus, setLetterStatus] = useState({});
 
+  const isStartingSession = useRef(false);
+  const hasInitialized = useRef(false);
+
   const difficultyId = location.state?.difficultyId;
 
   useEffect(() => {
-    if (!difficultyId) {
-      navigate("/");
+    if (hasInitialized.current) {
       return;
     }
-    startNewGame();
-  }, [difficultyId, navigate]);
 
-  const startNewGame = async () => {
+    hasInitialized.current = true;
+
+    if (sessionId) {
+      if (user?.id) {
+        loadExistingSession();
+      } else {
+        navigate("/");
+      }
+    } else if (difficultyId) {
+      startNewGame();
+    } else {
+      navigate("/");
+    }
+  }, [sessionId, difficultyId, navigate, user?.id]);
+
+  const loadExistingSession = async () => {
     try {
       setIsLoading(true);
-      const session = await startGameSession(difficultyId);
+      const session = getSessionData(sessionId, user?.id);
+
+      if (!session) {
+        setMessage("Session not found");
+        return;
+      }
+
+      setGameSession(session);
+      setGuesses(session.attempts || []);
+      setCurrentGuess("");
+      setGameStatus(
+        session.isCompleted ? (session.won ? "won" : "lost") : "playing"
+      );
+      setMessage("");
+
+      const letterStatusMap = {};
+      (session.attempts || []).forEach((attempt) => {
+        attempt.result.forEach(({ letter, solution }) => {
+          if (solution === "correct") {
+            letterStatusMap[letter] = "correct";
+          } else if (
+            solution === "elsewhere" &&
+            letterStatusMap[letter] !== "correct"
+          ) {
+            letterStatusMap[letter] = "elsewhere";
+          } else if (solution === "absent" && !letterStatusMap[letter]) {
+            letterStatusMap[letter] = "absent";
+          }
+        });
+      });
+      setLetterStatus(letterStatusMap);
+    } catch (err) {
+      setMessage("Failed to load session");
+      console.error("Error loading session:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const startNewGame = async () => {
+    if (isStartingSession.current) {
+      return;
+    }
+
+    try {
+      isStartingSession.current = true;
+      setIsLoading(true);
+      const session = await startGameSession(difficultyId, user?.id);
       console.log(session);
       setGameSession(session);
       setGuesses([]);
@@ -46,6 +113,7 @@ const Game = () => {
       console.error("Error starting game:", err);
     } finally {
       setIsLoading(false);
+      isStartingSession.current = false;
     }
   };
 
@@ -73,7 +141,11 @@ const Game = () => {
     }
 
     try {
-      const result = await checkWord(gameSession.sessionId, currentGuess);
+      const result = await checkWord(
+        gameSession.sessionId,
+        currentGuess,
+        user?.id
+      );
 
       const newLetterStatus = { ...letterStatus };
       result.forEach(({ letter, solution }) => {
@@ -100,11 +172,15 @@ const Game = () => {
       if (result.every((r) => r.solution === "correct")) {
         setGameStatus("won");
         setMessage("Congratulations! You won!");
-        updateUserStats({ won: true, attempts: guesses.length + 1 });
+        if (user?.id) {
+          updateUserStats({ won: true, attempts: guesses.length + 1 });
+        }
       } else if (guesses.length >= 5) {
         setGameStatus("lost");
         setMessage("Game over! Better luck next time.");
-        updateUserStats({ won: false, attempts: guesses.length + 1 });
+        if (user?.id) {
+          updateUserStats({ won: false, attempts: guesses.length + 1 });
+        }
       }
 
       setCurrentGuess("");
@@ -158,6 +234,13 @@ const Game = () => {
         <div className="game-header">
           <h1>Wordle - {gameSession.difficulty.name}</h1>
           <p>Guess the {gameSession.wordLenght}-letter word</p>
+          {!user?.id && (
+            <p
+              style={{ fontSize: "0.9rem", opacity: 0.7, fontStyle: "italic" }}
+            >
+              Playing as guest - progress won't be saved
+            </p>
+          )}
         </div>
 
         {message && (
@@ -189,6 +272,7 @@ const Game = () => {
             guesses={guesses}
             onPlayAgain={startNewGame}
             onGoHome={() => navigate("/")}
+            isLoggedIn={!!user?.id}
           />
         )}
       </div>

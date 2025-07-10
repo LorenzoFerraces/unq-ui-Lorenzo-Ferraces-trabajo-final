@@ -45,6 +45,17 @@
   line-height: 1.5;
 }
 
+.guest-message {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--accent-color);
+  border-radius: 4px;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
 .result-stats {
   margin-bottom: 2rem;
 }

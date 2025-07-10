@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { getItem, setItem, removeItem } from "../service/StorageService";
+import { clearAllSessions } from "../service/GameService";
 
 const AuthContext = createContext();
 
@@ -49,6 +50,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    if (user?.id) {
+      clearAllSessions(user.id);
+    }
     setUserState(null);
     setIsAuthenticated(false);
     removeItem("user");
