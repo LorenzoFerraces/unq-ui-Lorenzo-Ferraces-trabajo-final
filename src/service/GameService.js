@@ -1,29 +1,15 @@
 
-const API_BASE_URL = 'http://localhost:8080'; // TODO: Replace with actual API URL
+const API_BASE_URL = 'https://word-api-hmlg.vercel.app'; // TODO: Replace with actual API URL
 
-const mockDifficulties = [
-  { id: 'easy', name: 'Easy (4 letters)' },
-  { id: 'medium', name: 'Medium (5 letters)' },
-  { id: 'hard', name: 'Hard (6 letters)' },
-];
-
-const mockWords = {
-  easy: ['WORD', 'GAME', 'PLAY', 'QUIZ', 'WINS', 'LUCK'],
-  medium: ['WORDS', 'GAMES', 'PLAYS', 'QUIZZ', 'LUCKY', 'THINK'],
-  hard: ['WORDLE', 'PUZZLE', 'MASTER', 'GENIUS', 'PLAYER', 'WINNER'],
-};
-
-let sessionCounter = 1;
+let sessionCounter = 0;
 const activeSessions = new Map();
 
 export class GameService {
   static async getDifficulties() {
     try {
-      // TODO: Replace with actual API call
-      
-      return new Promise((resolve) => {
-        setTimeout(() => resolve(mockDifficulties), 500);
-      });
+      const response = await fetch(`${API_BASE_URL}/api/difficulties`);
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('Error fetching difficulties:', error);
       throw error;
@@ -32,46 +18,39 @@ export class GameService {
 
   static async startGameSession(difficultyId) {
     try {
-      // TODO: Replace with actual API call
-      
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          const difficulty = mockDifficulties.find(d => d.id === difficultyId);
-          if (!difficulty) {
-            reject(new Error('Difficulty not found'));
-            return;
-          }
+      const response = await fetch(`${API_BASE_URL}/api/difficulties/${difficultyId}`)
 
-          const sessionId = `session_${sessionCounter++}`;
-          const wordLength = this.getWordLengthForDifficulty(difficultyId);
-          const secretWord = this.getRandomWord(difficultyId);
-          
-          const gameSession = {
-            sessionId,
-            difficulty,
-            wordLength,
-          };
+      const data = await response.json();
 
-          activeSessions.set(sessionId, {
-            ...gameSession,
-            secretWord,
-            attempts: [],
-            isCompleted: false,
-          });
 
-          resolve(gameSession);
-        }, 500);
+      const sessionId = data.sessionId;
+      const secretWord = data.secretWord;
+
+      activeSessions.set(sessionId, {
+        ...data,
+        attempts: [],
+        isCompleted: false,
       });
+
+      return data;
     } catch (error) {
-      console.error('Error starting game session:', error);
+      if (error.message === '404') {
+        throw new Error('Difficulty not found');
+      }
       throw error;
     }
   }
 
   static async checkWord(sessionId, word) {
     try {
-      // TODO: Replace with actual API call
-      
+      const response = await fetch(`${API_BASE_URL}/api/checkWord`, {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId,
+          word,
+        }),
+      }
+
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           const session = activeSessions.get(sessionId);
@@ -97,7 +76,7 @@ export class GameService {
           }
 
           const result = this.analyzeWord(word.toUpperCase(), session.secretWord);
-          
+
           session.attempts.push({
             word: word.toUpperCase(),
             result,
@@ -139,7 +118,7 @@ export class GameService {
     const result = [];
     const solutionLetters = solution.split('');
     const guessLetters = guess.split('');
-    
+
     for (let i = 0; i < guessLetters.length; i++) {
       if (guessLetters[i] === solutionLetters[i]) {
         result[i] = {
@@ -152,7 +131,7 @@ export class GameService {
 
     for (let i = 0; i < guessLetters.length; i++) {
       if (result[i]) continue;
-      
+
       const letterIndex = solutionLetters.indexOf(guessLetters[i]);
       if (letterIndex !== -1) {
         result[i] = {
