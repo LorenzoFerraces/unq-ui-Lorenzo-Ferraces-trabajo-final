@@ -1,6 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { startGameSession, checkWord } from "../service/GameService";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  startGameSession,
+  checkWord,
+  getSessionData,
+} from "../service/GameService";
 import { useAuth } from "../context/AuthContext";
 import WordleBoard from "../components/game/WordleBoard";
 import Keyboard from "../components/game/Keyboard";
@@ -10,7 +14,8 @@ import "./Game.css";
 const Game = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { updateUserStats } = useAuth();
+  const { sessionId } = useParams();
+  const { updateUserStats, user } = useAuth();
 
   const [gameSession, setGameSession] = useState(null);
   const [currentGuess, setCurrentGuess] = useState("");
@@ -20,20 +25,90 @@ const Game = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [letterStatus, setLetterStatus] = useState({});
 
+  const isStartingSession = useRef(false);
+  const hasInitialized = useRef(false);
+
   const difficultyId = location.state?.difficultyId;
 
   useEffect(() => {
-    if (!difficultyId) {
+    if (!user?.id) {
+      // User not logged in, redirect to home
       navigate("/");
       return;
     }
-    startNewGame();
-  }, [difficultyId, navigate]);
 
-  const startNewGame = async () => {
+    // Prevent duplicate initialization
+    if (hasInitialized.current) {
+      return;
+    }
+
+    hasInitialized.current = true;
+
+    if (sessionId) {
+      // Load existing session
+      loadExistingSession();
+    } else if (difficultyId) {
+      // Start new session
+      startNewGame();
+    } else {
+      // No session ID or difficulty ID, redirect to home
+      navigate("/");
+    }
+  }, [sessionId, difficultyId, navigate, user?.id]);
+
+  const loadExistingSession = async () => {
     try {
       setIsLoading(true);
-      const session = await startGameSession(difficultyId);
+      const session = getSessionData(sessionId, user?.id);
+
+      if (!session) {
+        setMessage("Session not found");
+        return;
+      }
+
+      setGameSession(session);
+      setGuesses(session.attempts || []);
+      setCurrentGuess("");
+      setGameStatus(
+        session.isCompleted ? (session.won ? "won" : "lost") : "playing"
+      );
+      setMessage("");
+
+      // Rebuild letter status from attempts
+      const letterStatusMap = {};
+      (session.attempts || []).forEach((attempt) => {
+        attempt.result.forEach(({ letter, solution }) => {
+          if (solution === "correct") {
+            letterStatusMap[letter] = "correct";
+          } else if (
+            solution === "elsewhere" &&
+            letterStatusMap[letter] !== "correct"
+          ) {
+            letterStatusMap[letter] = "elsewhere";
+          } else if (solution === "absent" && !letterStatusMap[letter]) {
+            letterStatusMap[letter] = "absent";
+          }
+        });
+      });
+      setLetterStatus(letterStatusMap);
+    } catch (err) {
+      setMessage("Failed to load session");
+      console.error("Error loading session:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const startNewGame = async () => {
+    // Prevent duplicate session creation
+    if (isStartingSession.current) {
+      return;
+    }
+
+    try {
+      isStartingSession.current = true;
+      setIsLoading(true);
+      const session = await startGameSession(difficultyId, user?.id);
       console.log(session);
       setGameSession(session);
       setGuesses([]);
@@ -46,6 +121,7 @@ const Game = () => {
       console.error("Error starting game:", err);
     } finally {
       setIsLoading(false);
+      isStartingSession.current = false;
     }
   };
 
@@ -73,7 +149,11 @@ const Game = () => {
     }
 
     try {
-      const result = await checkWord(gameSession.sessionId, currentGuess);
+      const result = await checkWord(
+        gameSession.sessionId,
+        currentGuess,
+        user?.id
+      );
 
       const newLetterStatus = { ...letterStatus };
       result.forEach(({ letter, solution }) => {

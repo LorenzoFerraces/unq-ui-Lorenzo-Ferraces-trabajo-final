@@ -1,7 +1,31 @@
 import { API_BASE_URL } from "./constants";
+import { getItem, setItem, removeItem } from "./StorageService";
 
-let sessionCounter = 0;
-const activeSessions = new Map();
+const SESSIONS_KEY_PREFIX = "wordle_sessions_";
+
+// Session management functions
+const getUserSessionsKey = (userId) => {
+  return `${SESSIONS_KEY_PREFIX}${userId}`;
+};
+
+const getSessions = (userId) => {
+  if (!userId) return {};
+  return getItem(getUserSessionsKey(userId)) || {};
+};
+
+const saveSessions = (userId, sessions) => {
+  if (!userId) return;
+  setItem(getUserSessionsKey(userId), sessions);
+};
+
+export const getAllActiveSessions = (userId) => {
+  return getSessions(userId);
+};
+
+export const clearAllSessions = (userId) => {
+  if (!userId) return;
+  removeItem(getUserSessionsKey(userId));
+};
 
 export const getDifficulties = async () => {
   try {
@@ -19,7 +43,7 @@ export const getDifficulties = async () => {
   }
 };
 
-export const startGameSession = async (difficultyId) => {
+export const startGameSession = async (difficultyId, userId) => {
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/difficulties/${difficultyId}`,
@@ -42,11 +66,16 @@ export const startGameSession = async (difficultyId) => {
 
     console.log(data);
 
-    activeSessions.set(data.sessionId, {
-      ...data,
-      attempts: [],
-      isCompleted: false,
-    });
+    if (userId) {
+      const sessions = getSessions(userId);
+      sessions[data.sessionId] = {
+        ...data,
+        attempts: [],
+        isCompleted: false,
+        createdAt: new Date().toISOString(),
+      };
+      saveSessions(userId, sessions);
+    }
 
     return data;
   } catch (error) {
@@ -55,7 +84,7 @@ export const startGameSession = async (difficultyId) => {
   }
 };
 
-export const checkWord = async (sessionId, word) => {
+export const checkWord = async (sessionId, word, userId) => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/checkWord`, {
       method: "POST",
@@ -77,20 +106,25 @@ export const checkWord = async (sessionId, word) => {
 
     const data = await response.json();
 
-    const session = activeSessions.get(sessionId);
-    if (session) {
-      session.attempts.push({
-        word: word.toUpperCase(),
-        result: data,
-        timestamp: new Date().toISOString(),
-      });
+    if (userId) {
+      const sessions = getSessions(userId);
+      const session = sessions[sessionId];
+      if (session) {
+        session.attempts.push({
+          word: word.toUpperCase(),
+          result: data,
+          timestamp: new Date().toISOString(),
+        });
 
-      if (data.every((r) => r.solution === "correct")) {
-        session.isCompleted = true;
-        session.won = true;
-      } else if (session.attempts.length >= 6) {
-        session.isCompleted = true;
-        session.won = false;
+        if (data.every((r) => r.solution === "correct")) {
+          session.isCompleted = true;
+          session.won = true;
+        } else if (session.attempts.length >= 6) {
+          session.isCompleted = true;
+          session.won = false;
+        }
+
+        saveSessions(userId, sessions);
       }
     }
 
@@ -151,10 +185,15 @@ const analyzeWord = (guess, solution) => {
   return result;
 };
 
-export const getSessionData = (sessionId) => {
-  return activeSessions.get(sessionId);
+export const getSessionData = (sessionId, userId) => {
+  if (!userId) return null;
+  const sessions = getSessions(userId);
+  return sessions[sessionId];
 };
 
-export const clearSession = (sessionId) => {
-  activeSessions.delete(sessionId);
+export const clearSession = (sessionId, userId) => {
+  if (!userId) return;
+  const sessions = getSessions(userId);
+  delete sessions[sessionId];
+  saveSessions(userId, sessions);
 };
