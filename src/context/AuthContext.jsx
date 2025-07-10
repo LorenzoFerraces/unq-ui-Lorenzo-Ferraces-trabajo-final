@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { getItem, setItem, removeItem } from "../service/StorageService";
 
 const AuthContext = createContext();
 
@@ -11,14 +12,14 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUserState] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("wordleUser");
+    const savedUser = getItem("user");
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      setUserState(savedUser);
       setIsAuthenticated(true);
     }
     setIsLoading(false);
@@ -36,9 +37,9 @@ export const AuthProvider = ({ children }) => {
         maxStreak: 0,
       };
 
-      setUser(userData);
+      setUserState(userData);
       setIsAuthenticated(true);
-      localStorage.setItem("wordleUser", JSON.stringify(userData));
+      setItem("user", userData);
 
       return userData;
     } catch (error) {
@@ -48,9 +49,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    setUser(null);
+    setUserState(null);
     setIsAuthenticated(false);
-    localStorage.removeItem("wordleUser");
+    removeItem("user");
   };
 
   const updateUserStats = (gameResult) => {
@@ -66,8 +67,8 @@ export const AuthProvider = ({ children }) => {
         : user.maxStreak,
     };
 
-    setUser(updatedUser);
-    localStorage.setItem("wordleUser", JSON.stringify(updatedUser));
+    setUserState(updatedUser);
+    setItem("user", updatedUser);
   };
 
   const value = {
