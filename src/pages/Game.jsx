@@ -1,7 +1,7 @@
-import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useGame } from "../hooks/useGame";
+import { useKeyboard } from "../hooks/useKeyboard";
 import WordleBoard from "../components/game/WordleBoard";
 import Keyboard from "../components/game/Keyboard";
 import GameResult from "../components/game/GameResult";
@@ -27,20 +27,9 @@ const Game = () => {
     startNewGame,
   } = useGame(sessionId, difficultyId, user, updateUserStats);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Enter") {
-        handleKeyPress("ENTER");
-      } else if (e.key === "Backspace") {
-        handleKeyPress("BACKSPACE");
-      } else if (/^[a-zA-Z]$/.test(e.key)) {
-        handleKeyPress(e.key.toUpperCase());
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyPress]);
+  // Handle keyboard input
+  const isKeyboardDisabled = gameStatus !== "playing" || isSubmitting;
+  useKeyboard(handleKeyPress, isKeyboardDisabled);
 
   if (isLoading) {
     return (
@@ -97,7 +86,7 @@ const Game = () => {
         <Keyboard
           onKeyPress={handleKeyPress}
           letterStatus={letterStatus}
-          disabled={gameStatus !== "playing" || isSubmitting}
+          disabled={isKeyboardDisabled}
         />
 
         {gameStatus !== "playing" && (
