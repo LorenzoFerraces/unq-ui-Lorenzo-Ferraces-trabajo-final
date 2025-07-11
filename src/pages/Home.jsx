@@ -6,6 +6,8 @@ import {
   clearSession,
 } from "../service/GameService";
 import { useAuth } from "../context/AuthContext";
+import SessionsGrid from "../components/common/SessionsGrid";
+import DifficultyGrid from "../components/common/DifficultyGrid";
 import "./Home.css";
 
 const Home = () => {
@@ -126,109 +128,26 @@ const Home = () => {
     <div className="home-page">
       <div className="home-container">
         {!user?.id ? (
-          <>
-            <h1>Choose Your Difficulty</h1>
-            <p>Select a difficulty level to start playing Wordle</p>
-            <p
-              style={{ fontSize: "0.9rem", opacity: 0.7, marginBottom: "20px" }}
-            >
-              <em>Note: Login to save your progress and play multiple games</em>
-            </p>
-
-            <div className="difficulty-grid">
-              {difficulties.map((difficulty) => (
-                <button
-                  key={difficulty.id}
-                  onClick={() => handleDifficultySelect(difficulty.id)}
-                  className="difficulty-card"
-                >
-                  <h3>{difficulty.name}</h3>
-                  <p>
-                    {difficulty.id === "easy" && "Perfect for beginners"}
-                    {difficulty.id === "medium" && "Classic Wordle experience"}
-                    {difficulty.id === "hard" && "Challenge yourself"}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </>
+          <DifficultyGrid
+            difficulties={difficulties}
+            onDifficultySelect={handleDifficultySelect}
+            isGuest={true}
+          />
         ) : showDifficulties || !hasActiveSessions ? (
-          <>
-            <h1>Choose Your Difficulty</h1>
-            <p>Select a difficulty level to start playing Wordle</p>
-
-            {hasActiveSessions && (
-              <button
-                onClick={handleBackToSessions}
-                className="btn btn-secondary"
-                style={{ marginBottom: "20px" }}
-              >
-                ← Back to Active Games
-              </button>
-            )}
-
-            <div className="difficulty-grid">
-              {difficulties.map((difficulty) => (
-                <button
-                  key={difficulty.id}
-                  onClick={() => handleDifficultySelect(difficulty.id)}
-                  className="difficulty-card"
-                >
-                  <h3>{difficulty.name}</h3>
-                  <p>
-                    {difficulty.id === "easy" && "Perfect for beginners"}
-                    {difficulty.id === "medium" && "Classic Wordle experience"}
-                    {difficulty.id === "hard" && "Challenge yourself"}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </>
+          <DifficultyGrid
+            difficulties={difficulties}
+            onDifficultySelect={handleDifficultySelect}
+            showBackButton={hasActiveSessions}
+            onBackToSessions={handleBackToSessions}
+            isGuest={false}
+          />
         ) : (
-          <>
-            <h1>Your Active Games</h1>
-            <p>Continue playing or start a new game</p>
-
-            <button
-              onClick={handleNewGame}
-              className="btn btn-primary"
-              style={{ marginBottom: "20px" }}
-            >
-              + New Game
-            </button>
-
-            <div className="sessions-grid">
-              {Object.entries(activeSessions).map(([sessionId, session]) => (
-                <div key={sessionId} className="session-card">
-                  <h3>{session.difficulty.name}</h3>
-                  <p>{session.wordLenght || session.wordLength}-letter word</p>
-                  <p>Attempts: {session.attempts?.length || 0}/6</p>
-                  <p>
-                    Status:{" "}
-                    {session.isCompleted
-                      ? session.won
-                        ? "Won"
-                        : "Lost"
-                      : "In Progress"}
-                  </p>
-                  <div className="session-actions">
-                    <button
-                      onClick={() => handleSessionSelect(sessionId)}
-                      className="btn btn-primary"
-                    >
-                      {session.isCompleted ? "View" : "Continue"}
-                    </button>
-                    <button
-                      onClick={() => handleClearSession(sessionId)}
-                      className="btn btn-danger"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <SessionsGrid
+            activeSessions={activeSessions}
+            onSessionSelect={handleSessionSelect}
+            onClearSession={handleClearSession}
+            onNewGame={handleNewGame}
+          />
         )}
       </div>
     </div>
