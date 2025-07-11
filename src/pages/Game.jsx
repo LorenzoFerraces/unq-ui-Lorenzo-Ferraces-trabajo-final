@@ -23,6 +23,7 @@ const Game = () => {
   const [gameStatus, setGameStatus] = useState("playing");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [letterStatus, setLetterStatus] = useState({});
 
   const isStartingSession = useRef(false);
@@ -117,28 +118,18 @@ const Game = () => {
     }
   };
 
-  const handleKeyPress = useCallback(
-    (key) => {
-      if (gameStatus !== "playing") return;
-
-      if (key === "ENTER") {
-        handleSubmitGuess();
-      } else if (key === "BACKSPACE") {
-        setCurrentGuess((prev) => prev.slice(0, -1));
-      } else if (key.length === 1 && /^[A-Z]$/.test(key)) {
-        if (currentGuess.length < (gameSession?.wordLenght || 5)) {
-          setCurrentGuess((prev) => prev + key);
-        }
-      }
-    },
-    [gameStatus, currentGuess, gameSession]
-  );
-
-  const handleSubmitGuess = async () => {
+  const handleSubmitGuess = useCallback(async () => {
     if (!gameSession || currentGuess.length !== gameSession.wordLenght) {
       setMessage(`Word must be ${gameSession?.wordLenght || 5} letters long`);
       return;
     }
+
+    if (isSubmitting) {
+      return; // Prevent multiple concurrent submissions
+    }
+
+    setIsSubmitting(true);
+    setMessage(""); // Clear any previous messages
 
     try {
       const result = await checkWord(
@@ -191,8 +182,35 @@ const Game = () => {
         setMessage("Error checking word");
       }
       console.error("Error checking word:", err);
+    } finally {
+      setIsSubmitting(false);
     }
-  };
+  }, [
+    gameSession,
+    currentGuess,
+    isSubmitting,
+    letterStatus,
+    guesses,
+    user?.id,
+    updateUserStats,
+  ]);
+
+  const handleKeyPress = useCallback(
+    (key) => {
+      if (gameStatus !== "playing" || isSubmitting) return;
+
+      if (key === "ENTER") {
+        handleSubmitGuess();
+      } else if (key === "BACKSPACE") {
+        setCurrentGuess((prev) => prev.slice(0, -1));
+      } else if (key.length === 1 && /^[A-Z]$/.test(key)) {
+        if (currentGuess.length < (gameSession?.wordLenght || 5)) {
+          setCurrentGuess((prev) => prev + key);
+        }
+      }
+    },
+    [gameStatus, currentGuess, gameSession, isSubmitting, handleSubmitGuess]
+  );
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -258,12 +276,13 @@ const Game = () => {
           currentGuess={currentGuess}
           wordLength={gameSession.wordLenght}
           maxGuesses={6}
+          isSubmitting={isSubmitting}
         />
 
         <Keyboard
           onKeyPress={handleKeyPress}
           letterStatus={letterStatus}
-          disabled={gameStatus !== "playing"}
+          disabled={gameStatus !== "playing" || isSubmitting}
         />
 
         {gameStatus !== "playing" && (
